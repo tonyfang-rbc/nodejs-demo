@@ -1,0 +1,72 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-node-cache-{{ checksum "package-lock.json" }}
+      - run:
+          name: Install Node Dependencies
+          command: |
+            if [[ ! -d node_modules ]]; then
+              npm ci --loglevel warn --yes
+            else
+              echo "package-lock.json unchanged. Using cache."
+            fi
+      - run: npm build
+      - save_cache:
+          key: v1-node-cache-{{ checksum "package-lock.json" }}
+          paths:
+            - /node_modules
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - dist
+  test:
+    docker:
+      - image: cimg/node:lts
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-node-cache-{{ checksum "package-lock.json" }}
+      - run: echo "this is the test job"
+  docker_build:
+    docker:
+      - image: cimg/base:2021.11
+    steps:
+      - checkout
+      - setup_remote_docker
+      - attach_workspace:
+          at: ~/
+      - run: mkdir caches
+      - run: docker build -t nodejs-demo .
+      - run: docker save -o caches/nodejs-demo.tar nodejs-demo
+      - store_artifacts:
+          path: caches/nodejs-demo.tar
+
+workflows:
+  build-test-push:
+    jobs:
+      - build
+      # - lint:
+      #     requires:
+      #       - build
+      - test:
+          requires:
+            - build
+      # - e2e:
+      #     requires:
+      #       - build
+      - docker_build:
+          requires:
+            # - lint
+            - test
+            # - e2e
+      # - docker_push:
+      #     requires:
+      #       - docker_build
