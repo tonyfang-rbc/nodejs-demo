@@ -9,7 +9,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v2-node-cache-{{ checksum "package-lock.json" }}
+            - v1-node-cache-{{ checksum "package-lock.json" }}
       - run:
           name: Install Node Dependencies
           command: |
@@ -20,7 +20,7 @@ jobs:
             fi
       - run: npm run build
       - save_cache:
-          key: v2-node-cache-{{ checksum "package-lock.json" }}
+          key: v1-node-cache-{{ checksum "package-lock.json" }}
           paths:
             - ./node_modules
       - persist_to_workspace:
@@ -35,7 +35,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v2-node-cache-{{ checksum "package-lock.json" }}
+            - v1-node-cache-{{ checksum "package-lock.json" }}
       - run: npm run lint
       - run: npm run format:check
   test:
@@ -46,8 +46,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v2-node-cache-{{ checksum "package-lock.json" }}
-      - run: echo "This is for Unit tests"
+            - v1-node-cache-{{ checksum "package-lock.json" }}
+      - run: npm run test
   e2e:
     docker:
       - image: cimg/node:lts
@@ -56,7 +56,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v2-node-cache-{{ checksum "package-lock.json" }}
+            - v1-node-cache-{{ checksum "package-lock.json" }}
       - run: echo "This is for E2E tests"
   docker_build:
     docker:
@@ -68,9 +68,9 @@ jobs:
       - attach_workspace:
           at: .
       - run: docker build -t nodejs-demo .
-      - run: docker save -o nodejs-demo.tar nodejs-demo
-      - store_artifacts:
-          path: nodejs-demo.tar
+      # - run: docker save -o nodejs-demo.tar nodejs-demo
+      # - store_artifacts:
+      #     path: nodejs-demo.tar
 
 workflows:
   build-test-push:
