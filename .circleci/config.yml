@@ -17,7 +17,7 @@ jobs:
             else
               echo "package-lock.json unchanged. Using cache."
             fi
-      - run: npm build
+      - run: npm run build
       - save_cache:
           key: v1-node-cache-{{ checksum "package-lock.json" }}
           paths:
