@@ -23,9 +23,9 @@ jobs:
           paths:
             - ~/node_modules
       - persist_to_workspace:
-          root: ~/
+          root: .
           paths:
-            - dist/
+            - dist
   test:
     docker:
       - image: cimg/node:lts
@@ -42,7 +42,7 @@ jobs:
       - checkout
       - setup_remote_docker
       - attach_workspace:
-          at: ~/
+          at: .
       - run: mkdir caches
       - run: docker build -t nodejs-demo .
       - run: docker save -o caches/nodejs-demo.tar nodejs-demo
