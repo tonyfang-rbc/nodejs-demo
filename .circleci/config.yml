@@ -37,7 +37,7 @@ jobs:
           root: .
           paths:
             - dist
-  docker_build:
+  docker_build_push:
     docker:
       - image: cimg/base:2021.11
     resource_class: small
@@ -46,18 +46,14 @@ jobs:
       - setup_remote_docker
       - attach_workspace:
           at: .
-      - run: docker build -t nodejs-demo .
-      # - run: docker save -o nodejs-demo.tar nodejs-demo
-      # - store_artifacts:
-      #     path: nodejs-demo.tar
+      - run: docker build -t ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$CIRCLE_SHA1 .
+      - run: echo $GITHUB_TOKEN | docker login ghcr.io -u $CIRCLE_PROJECT_USERNAME --password-stdin
+      - run: docker push ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$CIRCLE_SHA1
 
 workflows:
   build-test-push:
     jobs:
       - build_test
-      - docker_build:
+      - docker_build_push:
           requires:
             - build_test
-      # - docker_push:
-      #     requires:
-      #       - docker_build
