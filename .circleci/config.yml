@@ -37,23 +37,61 @@ jobs:
           root: .
           paths:
             - dist
-  docker_build_push:
+  docker_build_test:
     docker:
       - image: cimg/base:2021.11
     resource_class: small
     steps:
       - checkout
       - setup_remote_docker
+      - run:
+          name: Set up environment
+          command: |
+            mkdir reports
+            wget -c https://github.com/aquasecurity/trivy/releases/download/v0.21.2/trivy_0.21.2_Linux-64bit.tar.gz
+            tar -xzf trivy_0.21.2_Linux-64bit.tar.gz
+            chmod a+x trivy
+            wget -q https://raw.githubusercontent.com/aquasecurity/trivy/v0.21.2/contrib/sarif.tpl
       - attach_workspace:
           at: .
-      - run: docker build -t ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$CIRCLE_SHA1 .
+      - run: docker build -t nodejs-demo .
+      - run:
+          name: Scan Container
+          command: |
+            ./trivy image \
+              --format='template' \
+              --template='@sarif.tpl' \
+              --output='reports/trivy-report.sarif' \
+              --exit-code='0' \
+              --severity='HIGH,CRITICAL' \
+              --vuln-type os \
+              --no-progress=true \
+              --ignore-unfixed=true \
+              "nodejs-demo:latest"
+      - run: export SARIF_BASE64=$(gzip -c reports/trivy-report.sarif | base64 -w0)
+      - run:
+          name: Upload Trivy Report
+          command: |
+            curl \
+            -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/code-scanning/sarifs \
+            -d "{'commit_sha':'$CIRCLE_SHA1','ref':'refs/heads/master','sarif':'${SARIF_BASE64}'}"
+  docker_push:
+    docker:
+      - image: cimg/base:2021.11
+    resource_class: small
+    steps:
+      - checkout
+      - setup_remote_docker
       - run: echo $GITHUB_TOKEN | docker login ghcr.io -u $CIRCLE_PROJECT_USERNAME --password-stdin
+      - run: docker tag nodejs-demo ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$CIRCLE_SHA1
       - run: docker push ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME:$CIRCLE_SHA1
 
 workflows:
   build-test-push:
     jobs:
       - build_test
-      - docker_build_push:
+      - docker_build_test:
           requires:
             - build_test
