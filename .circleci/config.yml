@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  build:
+  build_test:
     docker:
       - image: cimg/node:lts
     resource_class: small
@@ -9,55 +9,34 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v1-node-cache-{{ checksum "package-lock.json" }}
+            - v1-npm-cache-{{ checksum "package-lock.json" }}
       - run:
           name: Install Node Dependencies
-          command: |
-            if [[ ! -d node_modules ]]; then
-              npm ci --loglevel warn --yes
-            else
-              echo "package-lock.json unchanged. Using cache."
-            fi
-      - run: npm run build
+          command: npm ci --cache .npm --prefer-offline --no-audit
+      - run:
+          name: Check Linting
+          command: npm run lint:ci
+      - run:
+          name: Check Formatting
+          command: npm run format:check
+      - run:
+          name: Build Typescript Project
+          command: npm run build
+      - run:
+          name: Running Unit Tests
+          command: npm run test:ci
+          environment:
+            JEST_JUNIT_OUTPUT_DIR: ./reports/junit/
+      - store_test_results:
+          path: ./reports/junit/
       - save_cache:
-          key: v1-node-cache-{{ checksum "package-lock.json" }}
+          key: v1-npm-cache-{{ checksum "package-lock.json" }}
           paths:
-            - ./node_modules
+            - ./.npm
       - persist_to_workspace:
           root: .
           paths:
             - dist
-  lint:
-    docker:
-      - image: cimg/node:lts
-    resource_class: small
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-node-cache-{{ checksum "package-lock.json" }}
-      - run: npm run lint
-      - run: npm run format:check
-  test:
-    docker:
-      - image: cimg/node:lts
-    resource_class: small
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-node-cache-{{ checksum "package-lock.json" }}
-      - run: npm run test
-  e2e:
-    docker:
-      - image: cimg/node:lts
-    resource_class: small
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - v1-node-cache-{{ checksum "package-lock.json" }}
-      - run: echo "This is for E2E tests"
   docker_build:
     docker:
       - image: cimg/base:2021.11
@@ -75,21 +54,10 @@ jobs:
 workflows:
   build-test-push:
     jobs:
-      - build
-      - lint:
-          requires:
-            - build
-      - test:
-          requires:
-            - build
-      - e2e:
-          requires:
-            - build
+      - build_test
       - docker_build:
           requires:
-            - lint
-            - test
-            - e2e
+            - build_test
       # - docker_push:
       #     requires:
       #       - docker_build
